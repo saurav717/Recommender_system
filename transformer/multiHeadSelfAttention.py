@@ -19,14 +19,17 @@ class multiHeadSelfAttention(nn.Module):
         
     
     def forward(self, embedding: torch.Tensor,
+                      keys: torch.Tensor = None,
+                      values: torch.Tensor=None,
+                      queries: torch.Tensor=None,
                       mask   : torch.Tensor = None): 
         N = embedding.shape[0] # Number of inputs
         seq_len = embedding.shape[1] # Sequence lengths
         
         # Projections 
-        values = self.values(embedding).view(N, seq_len, self.num_heads, self.dimensions["values"])
-        keys = self.keys(embedding).view(N, seq_len, self.num_heads, self.dimensions["keys"])
-        queries = self.queries(embedding).view(N, seq_len, self.num_heads, self.dimensions["queries"])
+        values = self.values(embedding if values==None else keys).view(N, seq_len, self.num_heads, self.dimensions["values"]) 
+        keys = self.keys(embedding if keys==None else keys).view(N, seq_len, self.num_heads, self.dimensions["keys"]) 
+        queries = self.queries(embedding if queries==None else queries).view(N, seq_len, self.num_heads, self.dimensions["queries"])
         
         # Attention 
         compatibility = torch.einsum("nqhd,nkhd->nhqk", [queries, keys])
