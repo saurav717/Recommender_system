@@ -2,8 +2,9 @@ from libraries import *
 from multiHeadSelfAttention import multiHeadSelfAttention
 from PositionalEncoding import PositionalEncoding
 
+
 class DecoderBlock(nn.Module):
-    def __init__(self, max_seq_len:int,
+    def __init__(self, 
                  embed_size:int, 
                  num_heads: int,
                  ff_hidden_dim: int,
@@ -12,16 +13,18 @@ class DecoderBlock(nn.Module):
         super(DecoderBlock, self).__init__()
         
         # Masked Self-Attention
-        self.self_attention = multiHeadSelfAttention(embed_size, heads=num_heads, 
+        self.self_attention = multiHeadSelfAttention(embed_size=embed_size, heads=num_heads, 
                                                      dimensions={"keys": 5, "queries": 5, "values": 7})
         self.norm1 = nn.LayerNorm(embed_size)
         
-        self.cross_attention = multiHeadSelfAttention(embed_size, heads=num_heads,
+        self.cross_attention = multiHeadSelfAttention(embed_size=embed_size, heads=num_heads,
                                                       dimensions={"keys": 5, "queries": 5, "values": 7}) 
         self.norm2 = nn.LayerNorm(embed_size)
         
+        # print("embed size = ", embed_size, " -- hidden_dim = ", ff_hidden_dim)
         self.feed_forward = nn.Sequential(
             nn.Linear(embed_size, ff_hidden_dim),
+            nn.ReLU(),
             nn.Linear(ff_hidden_dim, embed_size)
         )
         self.norm3 = nn.LayerNorm(embed_size)
@@ -33,10 +36,11 @@ class DecoderBlock(nn.Module):
                 src_mask: torch.Tensor=None,
                 tgt_mask: torch.Tensor=None,
                 ) -> torch.Tensor:
-        attn_output = self.self_attention(x, tgt_mask)
+        attn_output = self.self_attention(embedding=x, mask=tgt_mask)
         x = self.norm1(x + self.dropout(attn_output))
         
-        cross_attn_output = self.cross_attention(x, keys=encoder_output, values=encoder_output, mask=src_mask)
+        print("encoder output shape = ", encoder_output.shape, " -- embeding shape = ", x.shape)
+        cross_attn_output = self.cross_attention(embedding=x, keys=encoder_output, values=encoder_output, mask=src_mask)
         x = self.norm2(x + self.dropout(cross_attn_output))
         ff_output = self.feed_forward(x)
         x = x + self.dropout(x)
@@ -57,7 +61,10 @@ class Decoder(nn.Module):
         self.positional_embedding = PositionalEncoding(embed_size, max_seq_len)
         
         self.layers = nn.ModuleList([
-            DecoderBlock(embed_size, num_heads, ff_hidden_dim, dropout) for _ in range(num_layers)
+            DecoderBlock(embed_size=embed_size,
+                         num_heads=num_heads,
+                         ff_hidden_dim=ff_hidden_dim,
+                         dropout=dropout) for _ in range(num_layers)
         ]) 
         
         self.fc_out = nn.Linear(embed_size, vocab_size)
@@ -72,7 +79,9 @@ class Decoder(nn.Module):
         
         x = self.word_embedding(x) * math.sqrt(self.embed_size)
         x = self.positional_embedding(x)
+        print("x shape here before dropout = ", x.shape)
         x = self.dropout(x)
+        print("x shape here = ", x.shape)
         
         for layer in self.layers:
             x = layer(x, encoder_output, src_mask, tgt_mask)
