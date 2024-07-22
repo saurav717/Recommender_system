@@ -26,14 +26,22 @@ class multiHeadSelfAttention(nn.Module):
         N = embedding.shape[0] # Number of inputs
         seq_len = embedding.shape[1] # Sequence lengths
         
+        # print("embeddings shape = ", embedding.shape)
         # Projections 
-        values = self.values(embedding if values==None else keys).view(N, seq_len, self.num_heads, self.dimensions["values"]) 
+        if keys!=None:
+            print("keys shape here = ", keys.shape)
+        if values!=None:
+            print("values shape here = ", values.shape)
+            
+        values = self.values(embedding if values==None else values).view(N, seq_len, self.num_heads, self.dimensions["values"]) 
+        # print("keys output = ", self.keys(embedding).view(N, seq_len, self.num_heads, self.dimensions["keys"]).shape)
         keys = self.keys(embedding if keys==None else keys).view(N, seq_len, self.num_heads, self.dimensions["keys"]) 
         queries = self.queries(embedding if queries==None else queries).view(N, seq_len, self.num_heads, self.dimensions["queries"])
         
         # Attention 
         compatibility = torch.einsum("nqhd,nkhd->nhqk", [queries, keys])
         if mask is not None:
+            print("compatibility shape = ", compatibility.shape, " -- mask shape = ", mask.shape)            
             compatibility = compatibility.masked_fill(mask==0, float("-1e20"))
         attention = torch.softmax(compatibility / math.sqrt(self.dimensions["keys"]), dim=3)
         out = torch.einsum("nhql,nlhd->nqhd", [attention, values])
@@ -49,7 +57,7 @@ if __name__ == "__main__":
                                   heads=5,
                                   dimensions={"keys": 5, "queries": 5, "values": 7})
     
-    embeddings = torch.randn(2, 10, 10)
+    embeddings = torch.randn(2, 20, 10)
     x = attn(embeddings)
     
     
